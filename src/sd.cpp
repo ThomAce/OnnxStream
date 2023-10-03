@@ -50,6 +50,7 @@ struct MainArgs
     std::string m_prompt = "a photo of an astronaut riding a horse on mars";
     std::string m_neg_prompt = "ugly, blurry";
     std::string m_steps = "10";
+	std::string m_seed = std::to_string(std::time(0) % 1024 * 1024);
     std::string m_save_latents = "";
     bool m_decoder_calibrate = false;
     bool m_decoder_fp16 = false;
@@ -1328,18 +1329,51 @@ inline static std::pair<ncnn::Mat, ncnn::Mat> prompt_solver(std::string const& p
     return std::make_pair(prompt_solve(tokenizer_token2idx, net, prompt_positive, return_tokens), prompt_solve(tokenizer_token2idx, net, prompt_negative, return_tokens_neg));
 }
 
-inline void stable_diffusion(std::string positive_prompt = std::string{}, std::string output_png_path = std::string{}, int step = 30, int seed = 42, std::string negative_prompt = std::string{})
+void writeLog(std::string lines)
 {
-    std::cout << "----------------[start]------------------" << std::endl;
+	try
+	{
+		std::ofstream fw("log.txt", std::ofstream::app);
+
+		if (fw.is_open())
+		{
+			fw << lines << "\n";
+			fw.close();
+		}
+		else std::cout << "Problem with opening file" << std::endl;
+	}
+	catch (char const* msg)
+	{
+		std::cout << msg << std::endl;
+	}
+}
+
+inline void stable_diffusion(std::string positive_prompt = std::string{}, std::string output_png_path = std::string{}, int steps = 30, int seed = 42, std::string negative_prompt = std::string{})
+{
+	
+	std::cout << "----------------[start]------------------" << std::endl;
+    writeLog("----------------[start]------------------");
     std::cout << "positive_prompt: " << positive_prompt << std::endl;
+    writeLog("positive_prompt: " + positive_prompt);
     std::cout << "negative_prompt: " << negative_prompt << std::endl;
+    writeLog("negative_prompt: " + negative_prompt);
     std::cout << "output_png_path: " << output_png_path << std::endl;
-    std::cout << "steps: " << step << std::endl;
-    //std::cout << "seed: " << seed << std::endl;
+    writeLog("output_png_path: " + output_png_path);
+    std::cout << "steps: " << steps << std::endl;
+    writeLog("steps: " + std::to_string(steps));
+    std::cout << "seed: " << seed << std::endl;
+    writeLog("seed: " + std::to_string(seed));	
+	
     std::cout << "----------------[prompt]------------------" << std::endl;
+	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+	
     auto [cond, uncond] = prompt_solver(positive_prompt, negative_prompt);
+	
+	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "DONE!		" + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(end - begin).count()) + + "s" << std::endl;
+	
     std::cout << "----------------[diffusion]---------------" << std::endl;
-    ncnn::Mat sample = diffusion_solver(seed, step, cond, uncond);
+    ncnn::Mat sample = diffusion_solver(seed, steps, cond, uncond);
     std::cout << "----------------[decode]------------------" << std::endl;
 
     if (g_main_args.m_save_latents.size())
@@ -1468,12 +1502,20 @@ void sdxl_decoder(ncnn::Mat& sample, const std::string& output_png_path, bool ti
 void stable_diffusion_xl(std::string positive_prompt, std::string output_png_path, int steps, std::string negative_prompt)
 {
     std::cout << "----------------[start]------------------" << std::endl;
+	writeLog("----------------[start]------------------");
+	writeLog("Used diffusion: XL");
     std::cout << "positive_prompt: " << positive_prompt << std::endl;
+	writeLog("positive_prompt: " + positive_prompt);
     std::cout << "negative_prompt: " << negative_prompt << std::endl;
+	writeLog("negative_prompt: " + negative_prompt);
     std::cout << "output_png_path: " << output_png_path << std::endl;
+	writeLog("output_png_path: " + output_png_path);
     std::cout << "steps: " << steps << std::endl;
+	writeLog("steps: " + std::to_string(steps));
     std::cout << "----------------[prompt]------------------" << std::endl;
 
+	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+	
     tensor_vector<int64_t> tokens, tokens_neg;
 
     prompt_solver(positive_prompt, negative_prompt, /* is_sdxl */ true, &tokens, &tokens_neg);
@@ -1573,6 +1615,9 @@ void stable_diffusion_xl(std::string positive_prompt, std::string output_png_pat
 
         return output;
     };
+	
+	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "DONE!		" + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(end - begin).count()) + + "s" << std::endl;
 
     std::cout << "----------------[diffusion]---------------" << std::endl;
 
@@ -1651,6 +1696,10 @@ int main(int argc, char** argv)
         else if (arg == "--decoder-calibrate")
         {
             g_main_args.m_decoder_calibrate = true;
+        }
+		else if (arg == "--seed")
+        {
+            str = &g_main_args.m_seed;
         }
         else if (arg == "--decoder-fp16")
         {
@@ -1763,7 +1812,7 @@ int main(int argc, char** argv)
     try
     {
         if (!g_main_args.m_xl)
-            stable_diffusion(g_main_args.m_prompt, g_main_args.m_output, std::stoi(g_main_args.m_steps), std::time(0) % 1024 * 1024, g_main_args.m_neg_prompt);
+            stable_diffusion(g_main_args.m_prompt, g_main_args.m_output, std::stoi(g_main_args.m_steps), std::stoi(g_main_args.m_seed), g_main_args.m_neg_prompt);
         else
             stable_diffusion_xl(g_main_args.m_prompt, g_main_args.m_output, std::stoi(g_main_args.m_steps), g_main_args.m_neg_prompt);
     }
