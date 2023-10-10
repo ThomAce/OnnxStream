@@ -1,4 +1,8 @@
-﻿**📣 UPDATE (OCTOBER 2023) 📣 Added support for Stable Diffusion XL 1.0 Base! And it runs on a RPI Zero 2! Please see the section below 👇**
+
+![kép](https://github.com/ThomAce/OnnxStream/assets/34764511/bcbc5aa3-ddd6-45da-b63e-96700eec19c4)
+
+
+ **📣 UPDATE (OCTOBER 2023) 📣 Added support for Stable Diffusion XL 1.0 Base! And it runs on a RPI Zero 2! Please see the section below 👇**
 
 # OnnxStream
 
