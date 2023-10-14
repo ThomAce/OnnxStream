@@ -678,6 +678,7 @@ public:
 //static inline ncnn::Mat CFGDenoiser_CompVisDenoiser(ncnn::Net& net, float const* log_sigmas, ncnn::Mat& input, float sigma, const ncnn::Mat& cond, const ncnn::Mat& uncond, SDXLParams* sdxl_params)
 static inline ncnn::Mat CFGDenoiser_CompVisDenoiser(ncnn::Net& net, float const* log_sigmas, ncnn::Mat& input, float sigma, const ncnn::Mat& cond, const ncnn::Mat& uncond, SDXLParams* sdxl_params, Model& model)
 {
+    
     int dim = sdxl_params ? 128 : 64;
 
     // get_scalings
@@ -713,6 +714,8 @@ static inline ncnn::Mat CFGDenoiser_CompVisDenoiser(ncnn::Net& net, float const*
     c_in_mat[0] = c_in;
     ncnn::Mat c_out_mat(1);
     c_out_mat[0] = c_out;
+
+    
 
     //auto run_inference = [&net, &input, &t_mat, &c_in_mat, &c_out_mat, &sdxl_params, &dim, &cond, &uncond](ncnn::Mat& output, const ncnn::Mat& cond_mat) {
 		auto run_inference = [&net, &input, &t_mat, &c_in_mat, &c_out_mat, &sdxl_params, &dim, &cond, &uncond, &model](ncnn::Mat& output, const ncnn::Mat& cond_mat) {
@@ -846,7 +849,7 @@ static inline ncnn::Mat CFGDenoiser_CompVisDenoiser(ncnn::Net& net, float const*
             model.run();
 
             //auto& output_vec = model.m_data[0].get_vector<float>();
-			
+			/*
 			tensor_vector<float> output_vec = std::move(model.m_data[0].get_vector<float>());
 
             model.m_data.clear();
@@ -855,6 +858,24 @@ static inline ncnn::Mat CFGDenoiser_CompVisDenoiser(ncnn::Net& net, float const*
             float* pf = input;
             for (auto& f : output_vec)
                 f = f * m + *pf++;
+
+            */
+
+            tensor_vector<float> output_vec = std::move(model.m_data[0].get_vector<float>());
+            model.m_data.clear();
+
+            const float m = c_out_mat[0];
+            float* pf = input;
+            float* f_ptr = output_vec.data();  // Assuming tensor_vector supports the data() method, similar to std::vector.
+            float* end = f_ptr + output_vec.size();
+
+            while (f_ptr != end)
+            {
+                *f_ptr = (*f_ptr * m) + *pf;
+                ++f_ptr;
+                ++pf;
+            }
+
 
             ncnn::Mat res(dim, dim, 1, 4);
             memcpy((float*)res, output_vec.data(), res.total() * sizeof(float));
@@ -872,6 +893,26 @@ static inline ncnn::Mat CFGDenoiser_CompVisDenoiser(ncnn::Net& net, float const*
     ncnn::Mat denoised_uncond;
     run_inference(denoised_uncond, uncond);
 
+    const int total_dim = dim * dim;
+
+    for (int c = 0; c < 4; c++)
+    {
+        float* u_ptr = denoised_uncond.channel(c);
+        float* c_ptr = denoised_cond.channel(c);
+
+        for (int hw = 0; hw < total_dim; ++hw, ++u_ptr, ++c_ptr)
+        {
+            *u_ptr += 7 * (*c_ptr - *u_ptr);
+        }
+    }
+
+
+   /* ncnn::Mat denoised_cond;
+    run_inference(denoised_cond, cond);
+
+    ncnn::Mat denoised_uncond;
+    run_inference(denoised_uncond, uncond);
+
     for (int c = 0; c < 4; c++)
     {
         float* u_ptr = denoised_uncond.channel(c);
@@ -884,6 +925,7 @@ static inline ncnn::Mat CFGDenoiser_CompVisDenoiser(ncnn::Net& net, float const*
             c_ptr++;
         }
     }
+    */
 
     return denoised_uncond;
 }
@@ -911,6 +953,24 @@ inline static ncnn::Mat diffusion_solver(int seed, int step, const ncnn::Mat& c,
 
     ncnn::Mat x_mat = randn_4_dim_dim(seed % 1000, dim);
     // t_to_sigma
+
+    std::vector<float> sigma;
+    sigma.reserve(step);  // Pre-allocate memory for 'step' number of elements.
+
+    float delta = -999.0f / (step - 1);
+    float t = 999.0;
+
+    for (int i = 0; i < step; i++, t += delta)
+    {
+        int low_idx = static_cast<int>(std::floor(t));
+        int high_idx = low_idx + 1;  // Since `high_idx` is just the ceiling of t, and t is increasing by delta (which is less than 1), the next `high_idx` is just the previous `low_idx + 1`.
+        float w = t - low_idx;
+
+        float value = std::exp((1 - w) * log_sigmas[low_idx] + w * log_sigmas[high_idx]);
+        sigma.push_back(value);
+    }
+
+    /*
     std::vector<float> sigma(step);
     float delta = -999.0f / (step - 1);
 
@@ -922,6 +982,7 @@ inline static ncnn::Mat diffusion_solver(int seed, int step, const ncnn::Mat& c,
         float w = t - low_idx;
         sigma[i] = std::exp((1 - w) * log_sigmas[low_idx] + w * log_sigmas[high_idx]);
     }
+    */
 
     sigma.push_back(0.f);
     float _norm_[4] = { sigma[0], sigma[0], sigma[0], sigma[0] };
@@ -983,19 +1044,26 @@ inline static ncnn::Mat diffusion_solver(int seed, int step, const ncnn::Mat& c,
         }
 #endif
 		
-		
-        for (int i = 0; i < static_cast<int>(sigma.size()) - 1; i++)
+        float dim_dim = dim * dim;
+        int sigma_size_minus_one = static_cast<int>(sigma.size()) - 1;
+
+        for (int i = 0; i < sigma_size_minus_one; i++)
         {
             std::cout << "step:" << i << "\t\t";
             double t1 = ncnn::get_current_time();
-            //ncnn::Mat denoised = CFGDenoiser_CompVisDenoiser(net, log_sigmas, x_mat, sigma[i], c, uc, sdxl_params);
+
 			ncnn::Mat denoised = CFGDenoiser_CompVisDenoiser(net, log_sigmas, x_mat, sigma[i], c, uc, sdxl_params, model);
             double t2 = ncnn::get_current_time();
             std::cout << t2 - t1 << "ms" << std::endl;
-            float sigma_up = std::min(sigma[i + 1], std::sqrt(sigma[i + 1] * sigma[i + 1] * (sigma[i] * sigma[i] - sigma[i + 1] * sigma[i + 1]) / (sigma[i] * sigma[i])));
-            float sigma_down = std::sqrt(sigma[i + 1] * sigma[i + 1] - sigma_up * sigma_up);
-            std::srand(std::time(NULL));
-            //ncnn::Mat randn = randn_4_dim_dim(rand() % 1000, dim);
+
+            float sigma_i_sq = sigma[i] * sigma[i];
+            float sigma_i1_sq = sigma[i + 1] * sigma[i + 1];
+
+            float inside_sqrt = sigma_i1_sq * (sigma_i_sq - sigma_i1_sq) / sigma_i_sq;
+
+            float sigma_up = std::min(sigma[i + 1], std::sqrt(inside_sqrt));
+            float sigma_down = std::sqrt(sigma_i1_sq - sigma_up * sigma_up);
+
 			ncnn::Mat randn = randn_4_dim_dim(seed % 1000, dim);
 
             for (int c = 0; c < 4; c++)
@@ -1003,13 +1071,16 @@ inline static ncnn::Mat diffusion_solver(int seed, int step, const ncnn::Mat& c,
                 float* x_ptr = x_mat.channel(c);
                 float* d_ptr = denoised.channel(c);
                 float* r_ptr = randn.channel(c);
+                float sigma_ratio = (sigma_down - sigma[i]) / sigma[i];
 
-                for (int hw = 0; hw < dim * dim; hw++)
+                for (int hw = 0; hw < dim_dim; hw++)
                 {
-                    *x_ptr = *x_ptr + ((*x_ptr - *d_ptr) / sigma[i]) * (sigma_down - sigma[i]) + *r_ptr * sigma_up;
-                    x_ptr++;
-                    d_ptr++;
-                    r_ptr++;
+                    float x_diff = *x_ptr - *d_ptr;
+                    *x_ptr += x_diff * sigma_ratio + *r_ptr * sigma_up;
+
+                    ++x_ptr;
+                    ++d_ptr;
+                    ++r_ptr;
                 }
             }
         }
