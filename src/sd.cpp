@@ -1064,15 +1064,17 @@ inline static ncnn::Mat diffusion_solver(int seed, int step, const ncnn::Mat& c,
             float sigma_up = std::min(sigma[i + 1], std::sqrt(inside_sqrt));
             float sigma_down = std::sqrt(sigma_i1_sq - sigma_up * sigma_up);
 
-            std::srand(std::time(NULL));
+            std::srand(seed++);//std::time(NULL));
             ncnn::Mat randn = randn_4_dim_dim(rand() % 1000, dim);
+
+            float sigma_ratio = (sigma_down - sigma[i]) / sigma[i];
 
             for (int c = 0; c < 4; c++)
             {
                 float* x_ptr = x_mat.channel(c);
                 float* d_ptr = denoised.channel(c);
                 float* r_ptr = randn.channel(c);
-                float sigma_ratio = (sigma_down - sigma[i]) / sigma[i];
+                
 
                 for (int hw = 0; hw < dim_dim; hw++)
                 {
