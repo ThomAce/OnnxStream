@@ -211,14 +211,17 @@ public:
     {
         std::vector<size_t> output_shape;
 
+        int first_shape_size = first_shape.size();
+        int second_shape_size = second_shape.size();
+
         for (int i = 0; ; i++)
         {
             size_t first = 0, second = 0;
 
-            if (i < first_shape.size())
-                first = first_shape[first_shape.size() - 1 - i];
-            if (i < second_shape.size())
-                second = second_shape[second_shape.size() - 1 - i];
+            if (i < first_shape_size)
+                first = first_shape[first_shape_size - 1 - i];
+            if (i < second_shape_size)
+                second = second_shape[second_shape_size - 1 - i];
 
             if (i != 0 && !first && !second)
                 break;
@@ -684,15 +687,17 @@ public:
         Qu8AddData* qu8_data = nullptr)
     {
         std::vector<size_t> output_shape;
+        int first_shape_size = first_shape.size();
+        int second_shape_size = second_shape.size();
 
         for (int i = 0; ; i++)
         {
             size_t first = 0, second = 0;
 
-            if (i < first_shape.size())
-                first = first_shape[first_shape.size() - 1 - i];
-            if (i < second_shape.size())
-                second = second_shape[second_shape.size() - 1 - i];
+            if (i < first_shape_size)
+                first = first_shape[first_shape_size - 1 - i];
+            if (i < second_shape_size)
+                second = second_shape[second_shape_size - 1 - i];
 
             if (i != 0 && !first && !second)
                 break;
@@ -888,15 +893,17 @@ public:
         std::vector<size_t>& second_shape, tensor_vector<T>& second_data)
     {
         std::vector<size_t> output_shape;
+        int first_shape_size = first_shape.size();
+        int second_shape_size = second_shape.size();
 
         for (int i = 0; ; i++)
         {
             size_t first = 0, second = 0;
 
-            if (i < first_shape.size())
-                first = first_shape[first_shape.size() - 1 - i];
-            if (i < second_shape.size())
-                second = second_shape[second_shape.size() - 1 - i];
+            if (i < first_shape_size)
+                first = first_shape[first_shape_size - 1 - i];
+            if (i < second_shape_size)
+                second = second_shape[second_shape_size - 1 - i];
 
             if (i != 0 && !first && !second)
                 break;
@@ -978,15 +985,17 @@ public:
         std::vector<size_t>& second_shape, tensor_vector<T>& second_data)
     {
         std::vector<size_t> output_shape;
+        int first_shape_size = first_shape.size();
+        int second_shape_size = second_shape.size();
 
         for (int i = 0; ; i++)
         {
             size_t first = 0, second = 0;
 
-            if (i < first_shape.size())
-                first = first_shape[first_shape.size() - 1 - i];
-            if (i < second_shape.size())
-                second = second_shape[second_shape.size() - 1 - i];
+            if (i < first_shape_size)
+                first = first_shape[first_shape_size - 1 - i];
+            if (i < second_shape_size)
+                second = second_shape[second_shape_size - 1 - i];
 
             if (i != 0 && !first && !second)
                 break;
@@ -1159,13 +1168,15 @@ public:
 
 std::string next_file_line(std::vector<char>& file, size_t& pos)
 {
-    for (; pos < file.size(); pos++)
+    int file_size = file.size();
+
+    for (; pos < file_size; pos++)
         if (file[pos] != '\r' && file[pos] != '\n')
             break;
 
     auto start = pos;
 
-    for (; pos < file.size(); pos++)
+    for (; pos < file_size; pos++)
         if (file[pos] == '\r' || file[pos] == '\n')
             break;
 
@@ -1604,32 +1615,32 @@ Tensor& Model::get_tensor_data(Tensor& t, bool make_copy /*= false*/, bool requi
 
         switch (t.m_type)
         {
-        case TensorDataType::uint8:
-        {
-            auto data = get_wp()->get_uint8(fn);
-            t.set_vector(std::move(data));
-            break;
-        }
-        case TensorDataType::float16:
-        {
-            auto data = get_wp()->get_float16(fn);
-            t.set_vector(std::move(data));
-            break;
-        }
-        case TensorDataType::float32:
-        {
-            auto data = get_wp()->get_float32(fn);
-            t.set_vector(std::move(data));
-            break;
-        }
-        case TensorDataType::int64:
-        {
-            auto data = get_wp()->get_int64(fn);
-            t.set_vector(std::move(data));
-            break;
-        }
-        default:
-            throw std::invalid_argument("Model::get_tensor_data: unsupported tensor data format.");
+            case TensorDataType::uint8:
+            {
+                auto data = get_wp()->get_uint8(fn);
+                t.set_vector(std::move(data));
+                break;
+            }
+            case TensorDataType::float16:
+            {
+                auto data = get_wp()->get_float16(fn);
+                t.set_vector(std::move(data));
+                break;
+            }
+            case TensorDataType::float32:
+            {
+                auto data = get_wp()->get_float32(fn);
+                t.set_vector(std::move(data));
+                break;
+            }
+            case TensorDataType::int64:
+            {
+                auto data = get_wp()->get_int64(fn);
+                t.set_vector(std::move(data));
+                break;
+            }
+            default:
+                throw std::invalid_argument("Model::get_tensor_data: unsupported tensor data format.");
         }
     }
     else
@@ -1679,20 +1690,20 @@ Tensor& Model::get_tensor_data(Tensor& t, bool make_copy /*= false*/, bool requi
             {
                 switch (tensor_ptr->m_type)
                 {
-                case TensorDataType::uint8:
-                    t.set_vector(tensor_vector<uint8_t>(tensor_ptr->get_vector<uint8_t>()));
-                    break;
-                case TensorDataType::float16:
-                    t.set_vector(tensor_vector<uint16_t>(tensor_ptr->get_vector<uint16_t>()));
-                    break;
-                case TensorDataType::float32:
-                    t.set_vector(tensor_vector<float>(tensor_ptr->get_vector<float>()));
-                    break;
-                case TensorDataType::int64:
-                    t.set_vector(tensor_vector<int64_t>(tensor_ptr->get_vector<int64_t>()));
-                    break;
-                default:
-                    throw std::invalid_argument("Model::get_tensor_data: unsupported tensor data format.");
+                    case TensorDataType::uint8:
+                        t.set_vector(tensor_vector<uint8_t>(tensor_ptr->get_vector<uint8_t>()));
+                        break;
+                    case TensorDataType::float16:
+                        t.set_vector(tensor_vector<uint16_t>(tensor_ptr->get_vector<uint16_t>()));
+                        break;
+                    case TensorDataType::float32:
+                        t.set_vector(tensor_vector<float>(tensor_ptr->get_vector<float>()));
+                        break;
+                    case TensorDataType::int64:
+                        t.set_vector(tensor_vector<int64_t>(tensor_ptr->get_vector<int64_t>()));
+                        break;
+                    default:
+                        throw std::invalid_argument("Model::get_tensor_data: unsupported tensor data format.");
                 }
 
                 t.m_layout = tensor_ptr->m_layout;
@@ -1709,18 +1720,18 @@ Tensor& Model::get_tensor_data(Tensor& t, bool make_copy /*= false*/, bool requi
     size_t size = 0;
     switch (t.m_type)
     {
-    case TensorDataType::uint8:
-        size = t.get_vector<uint8_t>().size();
-        break;
-    case TensorDataType::float16:
-        size = t.get_vector<uint16_t>().size();
-        break;
-    case TensorDataType::float32:
-        size = t.get_vector<float>().size();
-        break;
-    case TensorDataType::int64:
-        size = t.get_vector<int64_t>().size();
-        break;
+        case TensorDataType::uint8:
+            size = t.get_vector<uint8_t>().size();
+            break;
+        case TensorDataType::float16:
+            size = t.get_vector<uint16_t>().size();
+            break;
+        case TensorDataType::float32:
+            size = t.get_vector<float>().size();
+            break;
+        case TensorDataType::int64:
+            size = t.get_vector<int64_t>().size();
+            break;
     }
 
     int from_shape = 1;
@@ -1884,10 +1895,12 @@ void Model::push_tensor(Tensor&& t, bool force_quantization /*= false*/)
 
 bool Model::compare_shapes(const std::vector<size_t>& shape_1, const std::vector<size_t>& shape_2, int except /*= -1*/)
 {
-    if (shape_1.size() != shape_2.size())
+    int shape_1_size = shape_1.size();
+
+    if (shape_1_size != shape_2.size())
         return false;
     else
-        for (int i = 0; i < shape_1.size(); i++)
+        for (int i = 0; i < shape_1_size; i++)
             if (shape_1[i] != shape_2[i])
                 if (except == -1 || i != except)
                     return false;
